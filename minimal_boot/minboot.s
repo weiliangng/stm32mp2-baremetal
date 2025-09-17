@@ -1,35 +1,27 @@
-.cpu cortex-a35
+    .cpu cortex-a35
+    .text
+    .global _start
+    .global _Reset
 
-.equ STM32_USART2_TDR, 0x400E0028
+/* USART2 base 0x400E0000 => TDR at +0x28 from your dump */
+.equ USART_TDR,  0x400E0028
 
-.global _Reset
-.global _start
 _Reset:
-	ldr     x4, =STM32_USART2_TDR 
+_start:
+    /* x0 = TDR address */
+    ldr     x0, =USART_TDR   /* may create a pool entry */
 
-printMP2:
-	/* UART: print 'M' */
-	mov     x1, #77
-	str     x1, [x4] 
+    /* write single character 'g' (0x67) as a BYTE */
+    mov     w1, #0x67
+    strb    w1, [x0]
+    
+    b       hang          // <-- skip over the literal pool
+    
+    /* Force any pending literal pool entries to be emitted HERE, before our loop label, so the loop target remains code. */
+    .ltorg
+    .align 4
 
-	/* UART: print 'P' */
-	mov     x1, #80
-	str     x1, [x4] 
-
-	/* UART: print '2' */
-	mov     x1, #50
-	str     x1, [x4] 
-
-	/* UART: print '\n' */
-	mov     x1, #10
-	str     x1, [x4] 
-
-	mov     w0, #0x4000000
-delay:
-    subs    w0, w0, #0x1
-    b.ne    delay
-
-loopforever:
-	b       printMP2
-	
+hang:
+    wfe
+    b       hang
 
