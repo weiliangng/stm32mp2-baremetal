@@ -16,3 +16,5 @@ mkdir -p "$STAGE_DIR"
 install -m 0644 build/main-standalone.uimg "$STAGE_DIR/main-standalone.uimg"
 rm -f "$OUTPUT_IMAGE"
 mkfs.ext4 -q -d "$STAGE_DIR" -b 4096 -L userfs "$OUTPUT_IMAGE" 4096
+
+cp /home/user/stm32mp2-baremetal/ext/st-image-userfs-openstlinux-weston-stm32mp2.userfs.ext4 /home/user/mputest/Starter-Package/stm32mp2-openstlinux-6.6-yocto-scarthgap-mpu-v25.06.11/images/stm32mp2
