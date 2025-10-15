@@ -8,7 +8,6 @@ override INCLUDES := -I.
 override CFLAGS   += -ffreestanding -nostartfiles -fno-common \
                      -fdata-sections -ffunction-sections -c
 
-
 include $(SHAREDDIR)/makefile-common.mk
 
 

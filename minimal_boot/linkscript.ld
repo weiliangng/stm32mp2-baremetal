@@ -28,4 +28,8 @@ SECTIONS {
 
   /* simple, fixed stack near top of our 1 MiB window (leave 16 KiB guard) */
   __stack_top = ORIGIN(ROM) + LENGTH(ROM) - 0x4000;
+
+  . = ALIGN(16);
+  _end = .;
+  PROVIDE(end = _end);
 }
