@@ -2,11 +2,11 @@
 //#include <stdio.h>
 #include <stddef.h>
 
-#define DELAY_CYCLES_CONST(N) \ __asm__ __volatile__ (".rept " #N "\n\tnop\n\t.endr\n" ::: "memory")
+#define DELAY_CYCLES_CONST(N) __asm__ __volatile__ (".rept " #N "\n\tnop\n\t.endr\n" ::: "memory")
 #define COMPILER_BARRIER() __asm__ volatile ("" ::: "memory")
 
 //Select one mode: MODE_COUNTING_LOOP / MODE_WHILE / MODE_WHILE_NO_TIMEOUT / MODE_COMPARISON / MODE_ECHO
-#define MODE_COUNTING_LOOP
+#define MODE_COMPARISON
 
 /* Worst case for uint64_t is: 'r' + 20 digits + '\0' = 22 bytes */
 #define R_U64_BUFSZ 22u
@@ -167,13 +167,18 @@ static uint32_t run_mode(void) {
     trigger_low();
     DELAY_CYCLES_CONST(64);
     trigger_high();
+    
+    uint32_t result;
 
-    char buf[16];
     if (ok == 2) {
-	return 0; 
+	result = 0; 
     } else {
-	return 9999;
+	result = 9999;
     }
+
+    trigger_low();
+
+    return result;
 }
 
 #elif defined(MODE_ECHO)
