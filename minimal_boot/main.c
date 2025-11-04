@@ -11,7 +11,9 @@
 /* Worst case for uint64_t is: 'r' + 20 digits + '\0' = 22 bytes */
 #define R_U64_BUFSZ 22u
 
-#define USART_BASE  0x400E0000u
+#define USART_BASE  0x40220000u 
+
+
 #define USART_ISR   (*(volatile uint32_t *)(USART_BASE + 0x1Cu))
 #define USART_RDR   (*(volatile uint8_t  *)(USART_BASE + 0x24u))
 #define USART_TDR   (*(volatile uint8_t  *)(USART_BASE + 0x28u))
@@ -109,8 +111,8 @@ static uint32_t run_mode(void) {
 
     trigger_high();
 
-    for (volatile uint32_t i = 0; i < 50; i++) {
-        for (volatile uint32_t j = 0; j < 50; j++) {
+    for (volatile uint32_t i = 0; i < 99; i++) {
+        for (volatile uint32_t j = 0; j < 99; j++) {
             cnt++;
         }
     }
@@ -144,13 +146,14 @@ static uint32_t run_mode(void) {
 }
 
 #elif defined(MODE_WHILE_NO_TIMEOUT)
-
+__attribute__((noinline))
 static uint32_t run_mode(void) {
-    volatile uint32_t ok = 0;
 
+    volatile uint32_t ok = 0;
+    
     trigger_high();
     while (ok != 2) {
-        COMPILER_BARRIER();
+       // COMPILER_BARRIER();
     }
     trigger_low();
     
@@ -199,7 +202,8 @@ static void run_mode(void) {
 
 void main(void) {
     gpioj_pj1_init_output();
-    
+    usart_putc('s');//ready signal
+
     while(1){
 	while (usart_getc() != 'g') {}
         uint32_t res = run_mode();
