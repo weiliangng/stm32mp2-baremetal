@@ -2,22 +2,8 @@
 //#include <stdio.h>
 #include <stddef.h>
 
-
-
 #define DELAY_CYCLES_CONST(N) __asm__ __volatile__ (".rept " #N "\n\tnop\n\t.endr\n" ::: "memory")
 #define COMPILER_BARRIER() __asm__ volatile ("" ::: "memory")
-
-static __attribute__((noinline)) void delay_nops_runtime(uint32_t iters) {
-	asm volatile(
-			"1:\n\t"
-			"subs   %w0, %w0, #1\n\t"  // decrement
-			"nop\n\t"                  // the requested NOP per iteration
-			"b.ne   1b\n\t"            // loop if not zero
-			: "+r"(iters)
-			:
-			: "cc", "memory");
-}
-
 
 //Select one mode: MODE_COUNTING_LOOP / MODE_WHILE / MODE_WHILE_NO_TIMEOUT / MODE_COMPARISON / MODE_ECHO
 #define MODE_COMPARISON
@@ -25,8 +11,8 @@ static __attribute__((noinline)) void delay_nops_runtime(uint32_t iters) {
 /* Worst case for uint64_t is: 'r' + 20 digits + '\0' = 22 bytes */
 #define R_U64_BUFSZ 22u
 
-//#define USART_BASE  0x400E0000u//console
-#define USART_BASE  0x40220000u //header pins
+//#define USART_BASE  0x400E0000u//console uart (usbc port)
+#define USART_BASE  0x40220000u //uart on header pins
 
 
 #define USART_ISR   (*(volatile uint32_t *)(USART_BASE + 0x1Cu))
@@ -87,6 +73,17 @@ static inline void delay(volatile uint32_t n)
 	while (n--) __asm__ volatile("nop");
 }
 
+static __attribute__((noinline)) void delay_nops_runtime(uint32_t iters) {
+	asm volatile(
+			"1:\n\t"
+			"subs   %w0, %w0, #1\n\t"  // decrement
+			"nop\n\t"                  // the requested NOP per iteration
+			"b.ne   1b\n\t"            // loop if not zero
+			: "+r"(iters)
+			:
+			: "cc", "memory");
+}
+
 static inline void usart_putc(uint8_t c) {
 	while ((USART_ISR & TXE_BIT) == 0) { }
 	USART_TDR = c;
@@ -97,7 +94,7 @@ static inline uint8_t usart_getc(void) {
 	return USART_RDR;                 // read clears RXNE
 }
 
-// helper: send n chars
+// helper: send n chars using putc
 static void uart_send_buf(const char *buf, int n) {
 	if (n <= 0) return;
 	for (int i = 0; i < n; ++i) usart_putc((uint8_t)buf[i]);
@@ -184,50 +181,54 @@ __attribute__((noinline))
 
 #elif defined(MODE_COMPARISON)
 
+// One identical measurement block (branchless result accumulation)
+#define PROBE_BLOCK()                          \
+	__asm__ volatile ("" ::: "memory");        \
+	if (ok == 2) return 0; /* return */        \
+
+// Unroll helpers
+#define REP10(X) X; X; X; X; X; X; X; X; X; X
+#define REP100(X) REP10(REP10(X))
+#define REP1000(X) REP10(REP100(X))
+
 static uint32_t run_mode(void) {
 	
 	volatile uint32_t ok = 1;
-	//uint32_t hits = 0;         // counts how many times ok==2
-	// --- Precompute GPIO address + values, outside the hot path ---
+
+
+	// Precompute GPIO address + values, outside target code
+	// Must have for direct str instruction
+	
         //register uint32_t *gpio_bsrr asm("x20") = (uint32_t *)0x442D0018u;  // GPIOJ_BSRR address
         //register uint32_t pj1_rst asm("w21") = PJ1_RST;  // 0x20000
         //register uint32_t pj1_set asm("w22") = PJ1_SET;  // 0x00002
 	//COMPILER_BARRIER();  // stop the compiler reordering across this point
 	
+	//sync trigger
 	trigger_high();
 	delay_nops_runtime(30);
 	trigger_low();
-	
 	delay_nops_runtime(2500);
 	
+	//target code
 	trigger_high();
 	DELAY_CYCLES_CONST(200);
-	
-	// One identical measurement block (branchless result accumulation)
-#define PROBE_BLOCK()                          \
-	__asm__ volatile ("" ::: "memory");        \
-	if (ok == 2) return 0; /* return */        \
 
-	// Unroll helpers
-#define REP10(X) X; X; X; X; X; X; X; X; X; X
-#define REP100(X) REP10(REP10(X))
-#define REP1000(X) REP10(REP100(X))
-
+	// Falling edge: *just* a store, choose one of the below
 	//trigger_low();
 	//GPIOJ_BSRR = PJ1_RST;
-	// Falling edge: *just* a store, no mov/movk
 	//__asm__ volatile("str w21, [x20]" ::: "memory");
 	
-	// Do it 10 times, no loop overhead
+	// Compare 10 times, no loop overhead
 	REP10(PROBE_BLOCK());    
 	//PROBE_BLOCK();
+	
+	// Rising edge: again just a store, choose one of the below
 	//trigger_high();
 	//GPIOJ_BSRR = PJ1_SET;
-	// Rising edge: again just a store
         //__asm__ volatile("str w22, [x20]" ::: "memory");
 
 	DELAY_CYCLES_CONST(200);
-
 	trigger_low();
 
 	return 9999;
@@ -235,7 +236,7 @@ static uint32_t run_mode(void) {
 
 #elif defined(MODE_ECHO)
 
-//echo loop do not select
+//old echo test loop do not select
 static void run_mode(void) {
 	for (;;) {
 		while ((USART_ISR & RXNE_BIT) == 0) { }
@@ -254,6 +255,7 @@ static volatile uint32_t test_area[100] __attribute__((aligned(64)));
 #define NOP_PRE     100
 #define STORE_CNT   100
 #define NOP_POST    100
+
 
 static uint32_t run_mode(void) {
 	volatile uint32_t *base = &test_area[0];
