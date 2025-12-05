@@ -3,7 +3,7 @@
 Bare-metal test payload for the STM32MP2, designed for timing analysis, glitching experiments, and low‑level behavioral studies. 
 Provides **UART control**, a **GPIO trigger pin**, and several selectable runtime modes.
 
-*Scripts may not be very portable due to hardlinks
+*Scripts are not directly portable due to hardlinks, need to rename file paths
 
 ---
 
