@@ -107,6 +107,18 @@ Outputs:
 
 ---
 
+
+
+Replace the Starter Image userfs.ext4 with the ext4 partition
+When programming, since linux is not required, we hijack the userfs partition for our use case and untick bootfs,vendorfs,rootfs
+Flash as usual and then ext4load mmc 1:6 0x88000000 /main-standalone.uimg should work
+
+
+
+
+
+
+
 ## 6. Booting via U-Boot
 
 Example boot commands:
